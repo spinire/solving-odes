@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Check a certificate · Solving ODEs Numerically</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/core.js"></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="site-header-inner">
+    <a class="site-title" href="index.html">Solving ODEs Numerically</a>
+    <nav aria-label="Site"><a href="index.html">All modules</a></nav>
+  </div>
+</header>
+
+<main id="main">
+  <h1>Check a certificate</h1>
+  <p class="lede">Enter the name, completion date and code exactly as they appear on a certificate.</p>
+  <form id="verify" novalidate>
+    <p><label for="v-name">Name on the certificate</label><br><input type="text" class="wide" id="v-name" autocomplete="off"></p>
+    <p><label for="v-date">Completion date</label><br><input type="date" id="v-date" style="width:auto;text-align:left"></p>
+    <p><label for="v-code">Code (for example ODE-1A2B-3C4D)</label><br><input type="text" class="wide" id="v-code" autocomplete="off" spellcheck="false"></p>
+    <div class="buttons"><button type="submit">Check</button></div>
+  </form>
+  <div class="feedback" id="v-result" role="status" aria-live="polite"></div>
+  <p class="small muted" style="margin-top:2rem">A match means the name and date were not changed after the certificate was made. Upper and lower case and extra spaces in the name don't matter.</p>
+</main>
+
+<footer><div class="inner">Solving ODEs Numerically</div></footer>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const L = window.LAR;
+  const out = document.getElementById("v-result");
+  document.getElementById("verify").addEventListener("submit", e => {
+    e.preventDefault();
+    const name = document.getElementById("v-name").value, date = document.getElementById("v-date").value;
+    const given = document.getElementById("v-code").value.trim().toUpperCase().replace(/\s+/g, "");
+    if (!L.normName(name) || !date || !given) { out.className = "feedback show info"; out.textContent = "Fill in all three fields."; return; }
+    const ok = L.certCode(name, date) === given;
+    out.className = "feedback show " + (ok ? "good" : "bad");
+    out.textContent = ok ? "Match: this code belongs to this name and completion date." : "No match. Check the spelling of the name and the date. If both are right, the certificate was changed after it was made.";
+  });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Solving ODEs Numerically</title>
+<meta name="description" content="Five short online modules on how computers solve differential equations: Euler's method, stability, Runge–Kutta methods and systems. About two and a half hours in all.">
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/core.js"></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="site-header-inner">
+    <a class="site-title" href="index.html">Solving ODEs Numerically</a>
+    <nav aria-label="Site"><a href="certificate.html">Certificate</a></nav>
+  </div>
+</header>
+
+<main id="main">
+  <h1>Solving ODEs Numerically</h1>
+  <p class="lede">Five short modules on how a computer solves a differential equation, step by step. Pictures first, a little practice, and a quick check at the end of each.</p>
+
+  <h2>How it works</h2>
+  <ul>
+    <li>Each module takes 25 to 30 minutes: a reason to care, a few short lessons with interactive explorers, practice, and a five-question check. About two and a half hours in all.</li>
+    <li>Go in order. You need to know that a derivative is a slope; everything else is explained as it comes up.</li>
+    <li>Pass all five checks to get a certificate. Checks can be retried as often as you like.</li>
+  </ul>
+
+  <h2 id="modules-h">Modules</h2>
+  <p><span id="progress-text">0 of 5 modules passed</span></p>
+  <div class="progress-bar" aria-hidden="true"><span id="progress-fill"></span></div>
+  <ol class="modules" id="module-list" aria-labelledby="modules-h"></ol>
+
+  <p><a href="certificate.html">Your certificate</a> <span class="muted small">(unlocks when all five checks are passed)</span></p>
+
+  <h2 id="saving">Saving your progress</h2>
+  <p>Your progress is stored in this browser. To continue on another device or browser, copy your progress code here and paste it there.</p>
+  <details>
+    <summary>Copy or restore a progress code</summary>
+    <p><label for="code-out">Your progress code</label></p>
+    <textarea id="code-out" rows="3" readonly></textarea>
+    <div class="buttons"><button type="button" id="copy-btn">Copy code</button></div>
+    <p style="margin-top:1.4rem"><label for="code-in">Paste a code from another device</label></p>
+    <textarea id="code-in" rows="3"></textarea>
+    <div class="buttons"><button type="button" id="restore-btn">Restore</button></div>
+    <p class="small" style="margin-top:1.4rem">Restoring adds the passed modules from the code to the ones already here; it never removes anything.</p>
+    <div class="buttons"><button type="button" class="secondary" id="reset-btn">Start over (clear progress)</button></div>
+    <div class="feedback" id="code-msg" role="status" aria-live="polite"></div>
+  </details>
+</main>
+
+<footer><div class="inner">Solving ODEs Numerically · Progress is saved in this browser only.</div></footer>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const L = window.LAR;
+  const list = document.getElementById("module-list");
+  function row(m, numLabel) {
+    const st = m.id ? L.status(m.id) : null;
+    const li = document.createElement("li");
+    const title = m.href ? `<a class="title" href="${m.href}">${m.title}</a>` : `<span class="title">${m.title}</span>`;
+    let status;
+    if (st && st.passed) status = `<span class="status done">Passed ✓ ${st.date}</span>`;
+    else if (m.href) status = `<span class="status">${m.minutes} min</span>`;
+    else status = `<span class="status soon">Coming soon</span>`;
+    li.innerHTML = `<span class="num">${numLabel}</span>${title}${status}<span class="blurb">${m.blurb}</span>`;
+    return li;
+  }
+  function render() {
+    list.innerHTML = "";
+    L.MODULES.forEach(m => list.appendChild(row(m, m.n)));
+    const n = L.passedCount();
+    document.getElementById("progress-text").textContent = `${n} of ${L.MODULES.length} modules passed`;
+    document.getElementById("progress-fill").style.width = (100 * n / L.MODULES.length) + "%";
+    document.getElementById("code-out").value = L.exportCode();
+  }
+  const msg = document.getElementById("code-msg");
+  function say(kind, text) { msg.className = "feedback show " + kind; msg.textContent = text; }
+  document.getElementById("copy-btn").addEventListener("click", async () => {
+    const t = document.getElementById("code-out");
+    try { await navigator.clipboard.writeText(t.value); say("good", "Copied."); }
+    catch (e) { t.select(); say("info", "Select the code above and copy it (Ctrl+C or ⌘C)."); }
+  });
+  document.getElementById("restore-btn").addEventListener("click", () => {
+    try { L.importCode(document.getElementById("code-in").value); render(); say("good", "Progress restored."); }
+    catch (e) { say("bad", e.message || "That code didn't work."); }
+  });
+  const reset = document.getElementById("reset-btn");
+  reset.addEventListener("click", () => {
+    if (reset.dataset.armed) { L.resetProgress(); render(); delete reset.dataset.armed; reset.textContent = "Start over (clear progress)"; say("info", "Progress cleared."); }
+    else { reset.dataset.armed = "1"; reset.textContent = "Press again to clear all progress"; }
+  });
+  render();
+});
+</script>
+</body>
+</html>
