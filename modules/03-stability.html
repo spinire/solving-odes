@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Module 3: Stability · Solving ODEs Numerically</title>
+<meta name="description" content="Why Euler's method with too large a step makes a decaying solution oscillate and blow up, the step-size limit k < 2/r, stiff problems, and backward Euler. About 30 minutes.">
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/style.css">
+<script defer src="../assets/vendor/katex/katex.min.js"></script>
+<script defer src="../assets/vendor/katex/auto-render.min.js"></script>
+<script defer src="../assets/core.js"></script>
+<script defer src="../assets/plot.js"></script>
+<script defer src="../assets/m03.js"></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="site-header-inner">
+    <a class="site-title" href="../index.html">Solving ODEs Numerically</a>
+    <nav aria-label="Site"><a href="../index.html">All modules</a><a href="../certificate.html">Certificate</a></nav>
+  </div>
+</header>
+
+<main id="main">
+  <p class="meta" style="margin-top:2rem">Module 3 of 5 · about 30 minutes</p>
+  <h1 style="margin-top:0.2rem">When Euler goes wrong: stability</h1>
+  <p class="lede">A smaller step gives a smaller error. But a step that is too large does not just give a larger error: the computed solution can swing wildly and explode, even when the true solution calmly settles down.</p>
+
+  <nav aria-label="On this page">
+    <ul class="module-map">
+      <li><a href="#why">Why you'd care</a></li>
+      <li><a href="#lesson1">1. The test problem</a></li>
+      <li><a href="#lesson2">2. Fast and slow: stiff problems</a></li>
+      <li><a href="#lesson3">3. What to do about it</a></li>
+      <li><a href="#practice-h">Practice</a></li>
+      <li><a href="#check-h">Module check</a></li>
+      <li><a href="#takeaways">Takeaways</a></li>
+    </ul>
+  </nav>
+
+  <!-- ============ WHY ============ -->
+  <h2 id="why">Why you'd care <span class="time">2 min</span></h2>
+  <p>In Module 2, Euler's method cooled a cup of coffee, $y' = -0.1\,(y - 20)$, $y(0) = 90$, and the error shrank in proportion to the step. Suppose you only care about the temperature after 100 minutes, so you try to save work with a step of $k = 25$ minutes: just four steps.</p>
+  <div class="table-wrap">
+    <table>
+      <caption>Euler's method for the coffee with step k = 25 minutes</caption>
+      <thead><tr><th scope="col">time (minutes)</th><th scope="col">Euler's temperature (°C)</th></tr></thead>
+      <tbody><tr><td>0</td><td>90</td></tr><tr><td>25</td><td>−85</td></tr><tr><td>50</td><td>177.5</td></tr><tr><td>75</td><td>−216.3</td></tr><tr><td>100</td><td>374.4</td></tr></tbody>
+    </table>
+  </div>
+  <p>The true temperature after 100 minutes is $20.003^\circ$C: the coffee has reached room temperature. Euler's method instead says the coffee freezes far below zero, then boils, then freezes harder. The answer is not a little inaccurate. It is nonsense, and it gets worse with every step. This module explains exactly when this happens and what to do about it.</p>
+
+  <!-- ============ LESSON 1 ============ -->
+  <h2 id="lesson1">Lesson 1: The test problem <span class="time">9 min</span></h2>
+  <p>To see what went wrong, strip the problem down to its simplest form. The coffee cares only about how far it is from room temperature, so call that distance $u = y - 20$. Then $u' = y' = -0.1\,u$: the distance shrinks at a rate proportional to itself. Near an asymptotically stable steady state (Module 1), many equations behave like this, so numerical methods are checked on one simple problem, called the <strong>test problem</strong>:</p>
+  <div class="display">$$y' = -r\, y, \qquad y(0) = 1, \qquad r > 0 .$$</div>
+  <p>The constant $r$ is a positive number that says how fast the process is: for the coffee, $r = 0.1$ per minute. The true solution, $y(t) = e^{-rt}$, decays smoothly to zero. A good method should do the same.</p>
+  <h3>What Euler's method does to it</h3>
+  <p>Euler's step for the test problem is $y_{j+1} = y_j + k \times (-r\, y_j)$. Collect the $y_j$:</p>
+  <div class="display">$$y_{j+1} = (1 - rk)\, y_j .$$</div>
+  <p>Each step multiplies the value by the same number, $\kappa = 1 - rk$, called the <strong>amplification factor</strong> ($\kappa$ is the Greek letter kappa). Starting from $y_0 = 1$, after $j$ steps $y_j = \kappa^{j}$. So everything depends on $\kappa$:</p>
+  <div class="table-wrap">
+    <table>
+      <caption>What Euler's method does to the test problem, depending on the step</caption>
+      <thead><tr><th scope="col"><span aria-hidden="true">$rk$</span><span class="visually-hidden">r times k</span></th><th scope="col" class="eq"><span aria-hidden="true">$\kappa = 1 - rk$</span><span class="visually-hidden">kappa = 1 minus r k</span></th><th scope="col">what $y_j$ does</th></tr></thead>
+      <tbody>
+        <tr><td>between 0 and 1</td><td>between 0 and 1</td><td>shrinks steadily toward 0, like the true solution</td></tr>
+        <tr><td>exactly 1</td><td>$0$</td><td>drops to 0 in one step and stays there</td></tr>
+        <tr><td>between 1 and 2</td><td>between −1 and 0</td><td>flips sign every step, but still shrinks toward 0</td></tr>
+        <tr><td>exactly 2</td><td>$-1$</td><td>flips sign forever without shrinking</td></tr>
+        <tr><td>more than 2</td><td>less than −1</td><td>flips sign and grows every step: it blows up</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>The coffee with $k = 25$ has $rk = 0.1 \times 25 = 2.5$, so $\kappa = -1.5$: every step flips the sign of $u = y - 20$ and makes it 1.5 times larger. That is exactly the table in the opening.</p>
+  <p>Euler's method is <strong>stable</strong> for the test problem when $|\kappa| < 1$, so the computed values decay as the true ones do. Since $\kappa = 1 - rk$,</p>
+  <div class="display-pair"><div class="display">$$-1 < 1 - rk < 1 \quad\Longleftrightarrow\quad 0 < rk < 2$$</div><div class="display">$$\Longleftrightarrow\quad k < \frac{2}{r} .$$</div></div>
+  <p>The right-hand inequality, $1 - rk < 1$, holds for every positive step. The left-hand one, $-1 < 1 - rk$, is the real condition: it says $rk < 2$.</p>
+  <p>For the coffee, $2/r = 2/0.1 = 20$ minutes. Any step under 20 minutes is stable; any step over it blows up.</p>
+  <p>Stability judged this way, by whether the method's values go to zero on the test problem, is called <strong>A-stability</strong>. A method that is A-stable only when the step is small enough, as Euler's method is, is called <strong>conditionally A-stable</strong>.</p>
+
+  <section class="panel" aria-label="Explore: Euler on the test problem">
+    <p class="panel-label" id="explore-h">Explore</p>
+    <div id="ex-test"></div>
+    <h3 style="margin-top:1.6rem">Try this</h3>
+    <ol class="tries">
+      <li>
+        <p>Start at $k = 0.2$ and move the slider slowly to the right. At what step does the computed solution stop looking like the true one?</p>
+        <details><summary>What happened?</summary><p>Here $r = 2$. Up to $k = 0.5$ ($rk = 1$) the dots fall steadily. Past $0.5$, $\kappa$ is negative and the dots jump from one side of zero to the other, though they still shrink.</p></details>
+      </li>
+      <li>
+        <p>Find the step where the dots bounce between $+1$ and $-1$ forever. Then go one notch further.</p>
+        <details><summary>Answer</summary><p>At $k = 1 = 2/r$, $\kappa = -1$, so the values alternate $1, -1, 1, -1, \dots$. Any larger step gives $|\kappa| > 1$ and the dots run off the chart.</p></details>
+      </li>
+      <li>
+        <p>Set $k = 0.5$. What happens after the first step, and why?</p>
+        <details><summary>Answer</summary><p>$\kappa = 1 - 2 \times 0.5 = 0$, so $y_1 = 0$ and every later value is 0. One step lands exactly on the resting state. The true solution only gets there gradually, so this is stable but not accurate.</p></details>
+      </li>
+    </ol>
+  </section>
+  <p>Notice what stability does and does not promise. A stable method's values decay when the true solution decays, but they can still be far from it, as in questions 1 and 3. Accuracy is about small errors; stability is about not blowing up. You need both.</p>
+
+  <section class="panel" aria-label="Quick check, Lesson 1">
+    <p class="panel-label">Quick check</p>
+    <div id="qc1"></div>
+  </section>
+
+  <!-- ============ LESSON 2 ============ -->
+  <h2 id="lesson2">Lesson 2: Fast and slow: stiff problems <span class="time">7 min</span></h2>
+  <p>For the coffee, the stability limit of 20 minutes is no hardship: you would never want a step that large for accuracy anyway. Trouble comes when a problem mixes a fast process with a slow one.</p>
+  <p>Picture a thermometer in a room whose temperature drifts slowly up and down over the day. The thermometer reacts quickly: it closes most of the gap to the room temperature within a couple of minutes. With time $t$ in hours, its reading $y$ obeys</p>
+  <div class="display">$$y' = -50\,\big(y - \cos t\big), \qquad y(0) = 0 ,$$</div>
+  <p>where $\cos t$ is the slowly changing room temperature (on some scale). The reading is pulled toward $\cos t$ at a rate proportional to the gap, with $r = 50$ per hour. After a fast start, the reading simply follows the slow curve $\cos t$.</p>
+  <p>To follow a curve as gentle as $\cos t$ accurately, a step of $k = 0.1$ hours would be plenty. But the gap between the reading and the room temperature behaves essentially like the test problem with $r = 50$ (plus a small, slowly changing push from the room), so Euler's method is stable only when</p>
+  <div class="display">$$k < \frac{2}{50} = 0.04 \text{ hours}.$$</div>
+  <p>And that limit never goes away, even long after the fast start is over and the solution is as smooth as can be. Try it:</p>
+
+  <section class="panel" aria-label="Explore: the stiff thermometer">
+    <p class="panel-label" id="explore2-h">Explore</p>
+    <div id="ex-stiff"></div>
+  </section>
+
+  <p>A problem like this, where a fast process that has long since settled still forces a tiny step, is called <strong>stiff</strong>. Stiff problems are common, for example in chemistry, where some reactions take microseconds and others hours. For a stiff problem, the number of Euler steps is set by stability, not by the accuracy you want.</p>
+
+  <section class="panel" aria-label="Quick check, Lesson 2">
+    <p class="panel-label">Quick check</p>
+    <div id="qc2"></div>
+  </section>
+
+  <!-- ============ LESSON 3 ============ -->
+  <h2 id="lesson3">Lesson 3: What to do about it <span class="time">4 min</span></h2>
+  <p><strong>Option 1: respect the limit.</strong> If you know roughly how fast the fastest process in your problem is, its $r$, keep the step below $2/r$. For problems that are not stiff, this costs nothing.</p>
+  <p><strong>Option 2: change the method.</strong> Euler's method uses the slope at the start of the step. <strong>Backward Euler</strong> uses the slope at the end:</p>
+  <div class="display">$$y_{j+1} = y_j + k\, f(t_{j+1}, y_{j+1}) .$$</div>
+  <p>For the test problem, $f(t, y) = -ry$, so this reads $y_{j+1} = y_j - rk\, y_{j+1}$. Move the $y_{j+1}$ term to the left, $(1 + rk)\, y_{j+1} = y_j$, and divide:</p>
+  <div class="display">$$y_{j+1} = \frac{1}{1 + rk}\, y_j .$$</div>
+  <p>Now the amplification factor $1/(1 + rk)$ is between 0 and 1 for <em>every</em> step $k > 0$: the values always decay, however large the step. Backward Euler never blows up on the test problem: it is <strong>A-stable</strong>, with no condition on the step.</p>
+  <p>The catch: $y_{j+1}$ appears on both sides of the formula, so each step means solving an equation for $y_{j+1}$, not just evaluating a formula. A method like this is called <strong>implicit</strong>; Euler's method, which gives $y_{j+1}$ directly, is <strong>explicit</strong>. For a stiff problem, the extra work per step is well worth it, because far fewer steps are needed. Solvers for stiff problems use a family of implicit methods called <strong>BDF</strong> (backward difference formula) methods, of which backward Euler is the simplest; scientific software offers them as special options for stiff problems (Module 5).</p>
+
+  <section class="panel" aria-label="Quick check, Lesson 3">
+    <p class="panel-label">Quick check</p>
+    <div id="qc3"></div>
+  </section>
+
+  <!-- ============ PRACTICE ============ -->
+  <h2 id="practice-h">Practice <span class="time">4 min</span></h2>
+  <p>Unlimited and not scored. Every problem has new numbers. Do a handful, and stop when they feel routine. A calculator is fine.</p>
+  <section class="panel" aria-labelledby="practice-h">
+    <div id="practice"></div>
+  </section>
+
+  <!-- ============ CHECK ============ -->
+  <h2 id="check-h">Module check <span class="time">4 min</span></h2>
+  <p>Five questions; 4 correct passes the module. You can retry as often as you like, with new numbers each time.</p>
+  <section class="panel" aria-labelledby="check-h">
+    <div id="check"></div>
+  </section>
+
+  <!-- ============ TAKEAWAYS ============ -->
+  <h2 id="takeaways">Takeaways</h2>
+  <ul>
+    <li>The test problem $y' = -ry$ ($r > 0$) has a solution that decays to zero. A method should reproduce that.</li>
+    <li>On it, Euler's method multiplies by $\kappa = 1 - rk$ every step. It is stable when $|\kappa| < 1$, that is, when $k < 2/r$: Euler's method is conditionally A-stable. Beyond that limit, the values flip sign and grow.</li>
+    <li>Stable is not the same as accurate: a stable method can still be far off. Accuracy needs a small error; stability only rules out blowing up.</li>
+    <li>A stiff problem has a fast process that forces a tiny step through stability, even when the solution is smooth.</li>
+    <li>Backward Euler, $y_{j+1} = y_j + k\, f(t_{j+1}, y_{j+1})$, decays for every step size on the test problem (it is A-stable), at the cost of solving an equation each step: it is implicit.</li>
+  </ul>
+
+  <h3>Go further</h3>
+  <ul>
+    <li>Holmes, <em>Introduction to Scientific Computing and Data Analysis</em>, Section 7.3.1 (Step 5) and Section 7.3.2. The test problem, A-stability and Theorem 7.1 on the amplification factor; backward Euler, explicit versus implicit methods, and stiff problems. Figure 7.4 shows Euler's method on the logistic equation with $kr = 3$ (unstable) and $kr = 1$ (stable).</li>
+    <li><a href="https://ocw.mit.edu/courses/res-18-009-learn-differential-equations-up-close-with-gilbert-strang-and-cleve-moler-fall-2015/resources/stiffness-ode23s-ode15s/">Cleve Moler, “Stiffness, ODE23s, ODE15s”</a> (video, MIT OpenCourseWare, with transcript). What stiffness looks like on a model of a flame, and why implicit solvers take far fewer steps; the first half explains the idea, the rest demonstrates MATLAB's solvers. Moler writes the step as $h$ where these pages use $k$.</li>
+  </ul>
+
+  <nav class="next-link" aria-label="Module navigation">
+    <a href="02-eulers-method.html">← Module 2, Euler's method</a>
+    <a href="04-heun-rk4.html">Module 4, Heun and RK4 →</a>
+  </nav>
+</main>
+
+<footer><div class="inner">Solving ODEs Numerically · Progress is saved in this browser only.</div></footer>
+</body>
+</html>

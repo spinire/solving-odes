@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Module 1: What an ODE solver does · Solving ODEs Numerically</title>
+<meta name="description" content="Differential equations as rules about rates, slope fields, initial value problems, and the job a numerical solver does. About 25 minutes.">
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/style.css">
+<script defer src="../assets/vendor/katex/katex.min.js"></script>
+<script defer src="../assets/vendor/katex/auto-render.min.js"></script>
+<script defer src="../assets/core.js"></script>
+<script defer src="../assets/plot.js"></script>
+<script defer src="../assets/m01.js"></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="site-header-inner">
+    <a class="site-title" href="../index.html">Solving ODEs Numerically</a>
+    <nav aria-label="Site"><a href="../index.html">All modules</a><a href="../certificate.html">Certificate</a></nav>
+  </div>
+</header>
+
+<main id="main">
+  <p class="meta" style="margin-top:2rem">Module 1 of 5 · about 25 minutes</p>
+  <h1 style="margin-top:0.2rem">What an ODE solver does</h1>
+  <p class="lede">Often what you know about a quantity is how fast it changes, not the quantity itself. A differential equation records that rule, and a solver turns it back into numbers.</p>
+
+  <nav aria-label="On this page">
+    <ul class="module-map">
+      <li><a href="#why">Why you'd care</a></li>
+      <li><a href="#lesson1">1. Rules about rates</a></li>
+      <li><a href="#lesson2">2. Pictures of slopes</a></li>
+      <li><a href="#lesson3">3. One curve, and the solver's job</a></li>
+      <li><a href="#practice-h">Practice</a></li>
+      <li><a href="#check-h">Module check</a></li>
+      <li><a href="#takeaways">Takeaways</a></li>
+    </ul>
+  </nav>
+
+  <!-- ============ WHY ============ -->
+  <h2 id="why">Why you'd care <span class="time">2 min</span></h2>
+  <p>A patient is given 400 mg of a drug. How much is left in the blood 8 hours later? Nobody measures that directly. What pharmacologists know is a rule about how fast the drug leaves: the more there is, the faster the body clears it. For this drug, at every moment the amount falls at a rate of $0.13$ times the amount present, per hour.</p>
+  <p>Rules like this are everywhere: populations, falling objects, outbreaks. A rule about rates, written as an equation, is a <strong>differential equation</strong>. This module is about what such an equation tells you, how to picture it, and what job a computer does when it “solves” one.</p>
+
+  <!-- ============ LESSON 1 ============ -->
+  <h2 id="lesson1">Lesson 1: Rules about rates <span class="time">5 min</span></h2>
+  <p>Write $y(t)$ for the amount of drug, in mg, $t$ hours after the dose. Its derivative $y'(t)$ is the rate at which the amount changes, in mg per hour. The rule says this rate is proportional to the amount, that is, a fixed number ($0.13$) times the amount, and negative, because the amount is going down:</p>
+  <div class="display">$$y' = -0.13\,y .$$</div>
+  <p>Right after the dose, $y = 400$, so the amount is falling at $0.13 \times 400 = 52$ mg per hour. Later, with less drug in the blood, it falls more slowly. The same equation, $y' = -r\,y$ with a positive constant $r$, describes anything that decays at a rate proportional to the amount present, such as a radioactive substance; here $r = 0.13$.</p>
+  <p>Every equation in these modules has the same shape:</p>
+  <div class="display">$$y' = f(t, y).$$</div>
+  <p>The function $f$ is a <strong>slope machine</strong>: give it a time $t$ and a value $y$, and it returns the rate of change at that moment. For the drug, $f(t, y) = -0.13\,y$; it happens not to use $t$. Such an equation is called an <strong>ordinary differential equation</strong>, or <strong>ODE</strong>: “ordinary” because the unknown $y$ depends on one variable, time.</p>
+  <div class="table-wrap">
+    <table class="stack">
+      <caption>Four rules about rates</caption>
+      <thead><tr><th scope="col">Situation</th><th scope="col">The rule in words</th><th scope="col">The equation</th></tr></thead>
+      <tbody>
+        <tr><td data-label="Situation">Drug in the blood, $y$ in mg</td><td data-label="The rule in words">Falls at a rate proportional to the amount</td><td data-label="The equation" class="eq">$y' = -0.13\,y$</td></tr>
+        <tr><td data-label="Situation">Fish in a pond, $y$ = number of fish</td><td data-label="The rule in words">Grows in proportion to its size, but growth slows to zero as $y$ nears 100</td><td data-label="The equation" class="eq">$y' = 0.5\,y\,(1 - y/100)$</td></tr>
+        <tr><td data-label="Situation">Skydiver, speed $v$ in m/s</td><td data-label="The rule in words">Gravity adds 9.8 m/s every second; air resistance takes away a part proportional to the speed</td><td data-label="The equation" class="eq">$v' = 9.8 - 0.2\,v$</td></tr>
+        <tr><td data-label="Situation">Coffee, temperature $y$ in °C</td><td data-label="The rule in words">Cools at a rate proportional to how much hotter it is than the 20° room</td><td data-label="The equation" class="eq">$y' = -0.1\,(y - 20)$</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Look at the fish. When $y$ is small, $1 - y/100$ is close to 1, so $y' \approx 0.5\,y$: plain growth. When $y$ is close to 100, the factor $1 - y/100$ is close to 0, so growth almost stops. The equation builds in the food shortage. It is a version of the <strong>logistic equation</strong>, the standard model of a population limited by its food supply.</p>
+  <h3>What a solution is</h3>
+  <p>A <strong>solution</strong> is a function whose derivative obeys the rule at every time. For the drug, try $y(t) = 400\,e^{-0.13t}$. Its derivative is</p>
+  <div class="display">$$\begin{aligned} y'(t) &= 400 \times (-0.13)\, e^{-0.13t} \\ &= -0.13 \times \big(400\,e^{-0.13t}\big) = -0.13\, y(t), \end{aligned}$$</div>
+  <p>so it obeys the rule. But $y(t) = 200\,e^{-0.13t}$ does too, and so does any number times $e^{-0.13t}$. An equation about rates has many solutions. Lesson 3 explains how to pick the one you want.</p>
+
+  <section class="panel" aria-label="Quick check, Lesson 1">
+    <p class="panel-label">Quick check</p>
+    <div id="qc1"></div>
+  </section>
+
+  <!-- ============ LESSON 2 ============ -->
+  <h2 id="lesson2">Lesson 2: Pictures of slopes <span class="time">7 min</span></h2>
+  <p>The slope machine gives a slope at every point $(t, y)$. That slope is how steeply a solution must be climbing or falling if it passes through that point. Draw a short line segment with that slope at many points and you get a <strong>slope field</strong> (also called a direction field). The equation is now a picture.</p>
+  <p>A solution curve has to match the segments everywhere it goes, so it flows through the field like a leaf carried by a stream. Pick a starting point and the field tells the curve where to go next, and next, and next.</p>
+
+  <section class="panel" aria-labelledby="explore-h">
+    <p class="panel-label" id="explore-h">Explore</p>
+    <div id="ex-field"></div>
+    <h3 style="margin-top:1.6rem">Try this</h3>
+    <ol class="tries">
+      <li>
+        <p>Choose the fish. Draw the solution that starts at $y(0) = 10$. Describe its shape.</p>
+        <details><summary>Answer</summary><p>An S-shape. It grows slowly at first (few fish), fastest around $y = 50$, then levels off just under 100 as food runs short.</p></details>
+      </li>
+      <li>
+        <p>Still with the fish, start at $y(0) = 100$, and then at $y(0) = 140$. What happens?</p>
+        <details><summary>What happened?</summary><p>Starting at 100, the curve is flat: $f(t, 100) = 0.5 \times 100 \times (1 - 1) = 0$, so the population never changes; the next section looks at such constant solutions. Starting at 140, there are more fish than the pond can feed, $1 - y/100$ is negative, and the population falls back toward 100.</p></details>
+      </li>
+      <li>
+        <p>For all three equations, the segments along any horizontal line are parallel. Why?</p>
+        <details><summary>Answer</summary><p>None of the three slope machines uses $t$: the slope depends only on the height $y$. When $f$ does use $t$, the segments change as you move left or right too.</p></details>
+      </li>
+    </ol>
+  </section>
+
+  <h3 id="steady-states">Flat lines: steady states</h3>
+  <p>Sometimes the slope is zero all along a horizontal line. For the fish, $f(t, 100) = 0.5 \times 100 \times (1 - 100/100) = 0$ at every time $t$, so every segment on the line $y = 100$ is flat. A solution that starts there has nothing pushing it up or down, and stays at 100 forever. A constant solution like this is called a <strong>steady-state solution</strong>, or steady state for short.</p>
+  <p>To find the steady states, set the right-hand side equal to zero and solve for $y$. For the fish, $0.5\,y\,(1 - y/100) = 0$ gives $y = 0$ (no fish, so none are born) or $y = 100$. For the skydiver, $9.8 - 0.2\,v = 0$ gives $v = 49$ m/s, the speed at which air resistance exactly cancels gravity. In the explorer, solutions that start near $y = 100$ or $v = 49$ settle onto them: these steady states are <strong>asymptotically stable</strong>. Solutions that start near $y = 0$ for the fish move away from it: that steady state is <strong>unstable</strong>.</p>
+
+  <section class="panel" aria-label="Quick check, Lesson 2">
+    <p class="panel-label">Quick check</p>
+    <div id="qc2"></div>
+  </section>
+
+  <!-- ============ LESSON 3 ============ -->
+  <h2 id="lesson3">Lesson 3: One curve, and the solver's job <span class="time">3 min</span></h2>
+  <p>A slope field has a solution curve through every point, so the equation alone doesn't say which curve you mean. A starting value does. An <strong>initial value problem</strong> is a differential equation together with the value at the start:</p>
+  <div class="display">$$y' = f(t, y), \qquad y(0) = \alpha .$$</div>
+  <p>The Greek letter $\alpha$ (“alpha”) stands for the starting value.</p>
+  <p>For the drug, $\alpha = 400$: the condition $y(0) = 400$ picks out $y(t) = 400\,e^{-0.13t}$, and the answer to the opening question is $y(8) = 400\,e^{-1.04} \approx 141$ mg.</p>
+  <p>Here calculus produced a formula. For most equations that come from real problems, such as the outbreak model in Module 5 or a swinging pendulum, there is no formula for the solution in terms of familiar functions. That is where a numerical solver comes in. Its job:</p>
+  <ul>
+    <li><strong>You give it</strong> the slope machine $f$, the starting value $\alpha$, and how far to go, say up to time $T$.</li>
+    <li><strong>It gives back</strong> a table of times $t_0 = 0, t_1, t_2, \dots, t_M = T$, with an approximate value $y_0 = \alpha, y_1, y_2, \dots$ at each one.</li>
+  </ul>
+  <p>The solver never sees the solution curve. All it can do is ask $f$ for the slope at points it chooses, and build the table from the answers, much like finding your way in fog with only a compass. Module 2 shows the simplest way to do it. The questions that matter afterwards are how accurate the table is, and how much work it takes.</p>
+
+  <section class="panel" aria-label="Quick check, Lesson 3">
+    <p class="panel-label">Quick check</p>
+    <div id="qc3"></div>
+  </section>
+
+  <!-- ============ PRACTICE ============ -->
+  <h2 id="practice-h">Practice <span class="time">4 min</span></h2>
+  <p>Unlimited and not scored. Every problem has new numbers. Do a handful, and stop when they feel routine.</p>
+  <section class="panel" aria-labelledby="practice-h">
+    <div id="practice"></div>
+  </section>
+
+  <!-- ============ CHECK ============ -->
+  <h2 id="check-h">Module check <span class="time">4 min</span></h2>
+  <p>Five questions; 4 correct passes the module. You can retry as often as you like, with new numbers each time.</p>
+  <section class="panel" aria-labelledby="check-h">
+    <div id="check"></div>
+  </section>
+
+  <!-- ============ TAKEAWAYS ============ -->
+  <h2 id="takeaways">Takeaways</h2>
+  <ul>
+    <li>A differential equation $y' = f(t, y)$ is a rule about rates: $f$ gives the slope at every time $t$ and value $y$.</li>
+    <li>A solution is a function whose slope obeys the rule at every time. There are many; a starting value $y(0) = \alpha$ picks one. Together they make an initial value problem.</li>
+    <li>A slope field draws the rule as short segments; solution curves follow them. Where the slope is zero for all $t$, there is a constant solution, a steady state.</li>
+    <li>A numerical solver takes $f$, $\alpha$ and an end time, and returns a table of approximate values. It only ever asks $f$ for slopes.</li>
+  </ul>
+
+  <h3>Go further</h3>
+  <ul>
+    <li>Holmes, <em>Introduction to Scientific Computing and Data Analysis</em>, Section 7.1. Initial value problems, the decay and logistic equations, and steady-state solutions, in the notation used here.</li>
+    <li><a href="https://tutorial.math.lamar.edu/Classes/DE/DirectionFields.aspx">Paul's Online Math Notes, “Direction Fields”</a>. How to sketch slope fields by hand, with worked examples.</li>
+    <li><a href="https://www.youtube.com/watch?v=p_di4Zn4wz4">3Blue1Brown, <em>Differential equations, a tourist's guide</em></a> (video). An animated introduction; it is long, and the first part gives the main ideas.</li>
+  </ul>
+
+  <nav class="next-link" aria-label="Module navigation">
+    <a href="../index.html">← All modules</a>
+    <a href="02-eulers-method.html">Module 2, Euler's method →</a>
+  </nav>
+</main>
+
+<footer><div class="inner">Solving ODEs Numerically · Progress is saved in this browser only.</div></footer>
+</body>
+</html>

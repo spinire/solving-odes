@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Module 5: ODE solvers in practice · Solving ODEs Numerically</title>
+<meta name="description" content="Systems of differential equations and the SIR outbreak model, turning second-order equations into first-order systems, and what library ODE solvers do: adaptive steps, tolerances and stiff methods. About 30 minutes.">
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/style.css">
+<script defer src="../assets/vendor/katex/katex.min.js"></script>
+<script defer src="../assets/vendor/katex/auto-render.min.js"></script>
+<script defer src="../assets/core.js"></script>
+<script defer src="../assets/plot.js"></script>
+<script defer src="../assets/m05.js"></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="site-header-inner">
+    <a class="site-title" href="../index.html">Solving ODEs Numerically</a>
+    <nav aria-label="Site"><a href="../index.html">All modules</a><a href="../certificate.html">Certificate</a></nav>
+  </div>
+</header>
+
+<main id="main">
+  <p class="meta" style="margin-top:2rem">Module 5 of 5 · about 30 minutes</p>
+  <h1 style="margin-top:0.2rem">ODE solvers in practice</h1>
+  <p class="lede">Real models have several quantities changing together. The methods you know already handle them; this module shows how, and what the ODE solvers in scientific software add on top.</p>
+
+  <nav aria-label="On this page">
+    <ul class="module-map">
+      <li><a href="#why">Why you'd care</a></li>
+      <li><a href="#lesson1">1. Systems: an outbreak</a></li>
+      <li><a href="#lesson2">2. Second-order equations</a></li>
+      <li><a href="#lesson3">3. What library solvers do</a></li>
+      <li><a href="#practice-h">Practice</a></li>
+      <li><a href="#check-h">Module check</a></li>
+      <li><a href="#takeaways">Takeaways</a></li>
+    </ul>
+  </nav>
+
+  <!-- ============ WHY ============ -->
+  <h2 id="why">Why you'd care <span class="time">2 min</span></h2>
+  <p>A new infection appears in a city. Public-health officials want to know: how many people will be ill at the peak, and when? How much would it help if people met less often, or if illness were shorter?</p>
+  <p>No single equation answers this, because three quantities change together. The number of people who can still catch the disease shrinks as people fall ill. The number of ill people grows when the ill meet the susceptible, and shrinks as people recover. The number recovered grows. Each rate depends on the others. A model like this is a <strong>system</strong> of differential equations, and solving systems is what ODE solvers spend most of their time doing.</p>
+
+  <!-- ============ LESSON 1 ============ -->
+  <h2 id="lesson1">Lesson 1: Systems: an outbreak <span class="time">9 min</span></h2>
+  <h3>The SIR model</h3>
+  <p>Split the population into three groups, measured as fractions of the whole population: $S(t)$, those <strong>s</strong>usceptible to the disease; $I(t)$, those <strong>i</strong>ll (and infectious); and $R(t)$, those <strong>r</strong>ecovered. With time $t$ in days, a standard model is</p>
+  <div class="display">$$\begin{aligned} S' &= -aSI, \\ I' &= -bI + aSI, \\ R' &= bI. \end{aligned}$$</div>
+  <p>Read it term by term:</p>
+  <ul>
+    <li>$aSI$: new infections. They need a susceptible person to meet an ill one, and the number of such meetings is proportional to both $S$ and $I$, so to their product. The constant $a$ is the <strong>infection rate</strong>. These people leave $S$ and join $I$.</li>
+    <li>$bI$: recoveries. Each day a fixed fraction $b$ of the ill recover, so the illness lasts about $1/b$ days on average. The constant $b$ is the <strong>recovery rate</strong>. These people leave $I$ and join $R$.</li>
+  </ul>
+  <p>Add the three equations: $S' + I' + R' = 0$. Nobody is created or lost, so $S + I + R$ stays equal to 1, the whole population. That makes a handy check on any computed solution. This is an example of an <strong>SIR model</strong>.</p>
+
+  <h3>Vectors make it one equation</h3>
+  <p>Collect the unknowns into a vector, written in bold, and do the same for the right-hand sides:</p>
+  <div class="display-pair">
+    <div class="display">$$\mathbf{y} = \begin{pmatrix} S \\ I \\ R \end{pmatrix},$$</div>
+    <div class="display">$$\mathbf{f}(t, \mathbf{y}) = \begin{pmatrix} -aSI \\ -bI + aSI \\ bI \end{pmatrix}.$$</div>
+  </div>
+  <p>Then the whole system is $\mathbf{y}' = \mathbf{f}(t, \mathbf{y})$ with $\mathbf{y}(0) = \boldsymbol{\alpha}$, the vector of starting values. That is exactly the shape of every problem in Modules 1–4, and <strong>every method carries over unchanged</strong>, with vectors in place of numbers. Euler's method becomes</p>
+  <div class="display">$$\mathbf{y}_{j+1} = \mathbf{y}_j + k\, \mathbf{f}(t_j, \mathbf{y}_j),$$</div>
+  <p>and RK4 is the same as before with $\mathbf{k}_1, \dots, \mathbf{k}_4$ now vectors. Orders and stability properties carry over too. The one thing to be careful about: compute every component of $\mathbf{f}$ from the <em>old</em> values $\mathbf{y}_j$, and only then update all the components together.</p>
+
+  <p><strong>A worked Euler step.</strong> Take $a = 0.3$ and $b = 0.1$ per day (an illness lasting about 10 days), and start with 1% of the population ill: $S = 0.99$, $I = 0.01$, $R = 0$. With a step of $k = 1$ day:</p>
+  <div class="table-wrap">
+    <table class="stack">
+      <caption>One Euler step for the SIR model with k = 1 day</caption>
+      <thead><tr><th scope="col">component</th><th scope="col">slope from the old values</th><th scope="col">new value</th></tr></thead>
+      <tbody>
+        <tr><td data-label="component">$S$</td><td data-label="slope from the old values">$-0.3 \times 0.99 \times 0.01 = -0.00297$</td><td data-label="new value">$0.99 - 0.00297 = 0.98703$</td></tr>
+        <tr><td data-label="component">$I$</td><td data-label="slope from the old values">$-0.1 \times 0.01 + 0.00297 = 0.00197$</td><td data-label="new value">$0.01 + 0.00197 = 0.01197$</td></tr>
+        <tr><td data-label="component">$R$</td><td data-label="slope from the old values">$0.1 \times 0.01 = 0.001$</td><td data-label="new value">$0 + 0.001 = 0.001$</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Check: $0.98703 + 0.01197 + 0.001 = 1$. The ill fraction grew by about 20% in one day.</p>
+
+  <section class="panel" aria-label="Explore: an outbreak">
+    <p class="panel-label">Explore</p>
+    <div id="ex-sir"></div>
+    <h3 style="margin-top:1.6rem">Try this</h3>
+    <ol class="tries">
+      <li>
+        <p>With $a = 0.3$ and $b = 0.1$, when is the peak, and what fraction of the population never falls ill?</p>
+        <details><summary>Answer</summary><p>About 30% are ill at the peak, around day 27. By the end, only about 6% have never been infected: almost everyone catches it.</p></details>
+      </li>
+      <li>
+        <p>Lower the infection rate $a$ (people meet less often). What happens to the size and timing of the peak?</p>
+        <details><summary>Answer</summary><p>The peak gets lower and later, and more people never fall ill. With $a = 0.2$, the peak is about 16% around day 44, and 20% never fall ill. This is what “flattening the curve” means.</p></details>
+      </li>
+      <li>
+        <p>Set $a = 0.1$ and $b = 0.1$. Why does the outbreak never take off?</p>
+        <details><summary>Answer</summary><p>$I' = I\,(aS - b)$, so the ill fraction grows only while $aS > b$, that is, while $S > b/a$. Here $b/a = 1$ and $S$ starts below 1, so $I$ shrinks from the start. The ratio $a/b$ is the average number of people one ill person infects in a fully susceptible population; an outbreak needs it to be more than 1.</p></details>
+      </li>
+    </ol>
+  </section>
+
+  <section class="panel" aria-label="Quick check, Lesson 1">
+    <p class="panel-label">Quick check</p>
+    <div id="qc1"></div>
+  </section>
+
+  <!-- ============ LESSON 2 ============ -->
+  <h2 id="lesson2">Lesson 2: Second-order equations <span class="time">4 min</span></h2>
+  <p>Newton's second law, force = mass × acceleration, gives equations with a <em>second</em> derivative: if $y(t)$ is a position, then</p>
+  <div class="display-pair"><div class="display">$$m\,y'' = F(t, y, y'),$$</div><div class="display">$$y(0) = \alpha, \quad y'(0) = \beta .$$</div></div>
+  <p>The force $F$ may depend on time, position and velocity. To start, you need both the position $\alpha$ and the velocity $\beta$. The methods you know only handle first derivatives, but there is a standard trick: give the velocity its own name, $v = y'$. Then $v' = y''$, and the one second-order equation becomes two first-order ones:</p>
+  <div class="display-pair"><div class="display">$$\begin{aligned} y' &= v, \\ v' &= \tfrac{1}{m} F(t, y, v), \end{aligned}$$</div><div class="display">$$\mathbf{y} = \begin{pmatrix} y \\ v \end{pmatrix}, \quad \boldsymbol{\alpha} = \begin{pmatrix} \alpha \\ \beta \end{pmatrix}.$$</div></div>
+  <p>Now it is a system $\mathbf{y}' = \mathbf{f}(t, \mathbf{y})$, and Euler, Heun and RK4 all apply.</p>
+  <p><strong>Example: a pendulum.</strong> The angle $\theta(t)$ of a swinging pendulum obeys $\theta'' = -\sin\theta$ (in suitable units). With $\omega = \theta'$, the angular velocity, this becomes</p>
+  <div class="display">$$\theta' = \omega, \qquad \omega' = -\sin\theta .$$</div>
+  <p>There is no formula for the solution in terms of familiar functions, but a solver handles it easily.</p>
+  <details class="deeper">
+    <summary>Go deeper: very long simulations</summary>
+    <p>A pendulum without friction should swing with the same amplitude forever, but RK4's small errors make the amplitude drift slowly over thousands of swings. For problems where energy must be conserved over very long times (pendulums, planetary orbits, molecules), special <strong>symplectic</strong> methods are used instead.</p>
+  </details>
+
+  <section class="panel" aria-label="Quick check, Lesson 2">
+    <p class="panel-label">Quick check</p>
+    <div id="qc2"></div>
+  </section>
+
+  <!-- ============ LESSON 3 ============ -->
+  <h2 id="lesson3">Lesson 3: What library solvers do <span class="time">7 min</span></h2>
+  <p>In practice you rarely write your own RK4 loop. Scientific software (Python's SciPy, MATLAB, Julia, R) has ODE solvers that you call with the slope function $\mathbf{f}$, the starting values $\boldsymbol{\alpha}$ and the time interval. Inside, they use the ideas from Modules 2–4, plus two more.</p>
+  <h3>1. They choose the step for you</h3>
+  <p>A fixed step wastes work: it has to be small enough for the hardest part of the solution, even where the solution is boring. An <strong>adaptive</strong> solver changes the step as it goes. At each step it estimates its own error, for example by comparing two methods of different order on the same step, an idea like the $k$ versus $k/2$ check in Module 2. If the error estimate is too large, it rejects the step and tries again with a smaller one; if it is comfortably small, it accepts the step and tries a larger one next time.</p>
+  <figure class="plotfig">
+    <svg id="fig-adaptive" class="plot" role="img" aria-label="The S-shaped solution of the logistic equation from Module 4, from t = 0 to 2, with the points where an adaptive RK4 solver stepped. The points are close together, about 0.05 apart, during the steep rise between t = 0.2 and t = 0.8, and get further and further apart after t = 1 as the curve flattens, ending about 0.24 apart. Tick marks along the time axis show the same pattern."></svg>
+    <figcaption>An adaptive RK4 solver on the logistic equation of Module 4, now up to $t = 2$, asked for an accuracy of about $10^{-6}$ per step. This solver estimates its error by comparing one step of size $k$ with two steps of size $k/2$. It took <span id="adaptive-count">27</span> steps (marked on the curve and along the time axis): short during the steep rise, then longer and longer as the curve flattens out.</figcaption>
+  </figure>
+  <p>The upshot is that <strong>you choose a tolerance, not a step</strong>: you say how accurate you want the answer, and the solver works out the steps. The tolerance controls the error made in each step; the final error is usually similar in size but not guaranteed.</p>
+  <details class="deeper">
+    <summary>Go deeper: what is inside a library solver</summary>
+    <p>The usual first choice, and the default in SciPy and MATLAB (called RK45 and ode45), is a pair of explicit Runge–Kutta methods of orders 4 and 5 that share their slope evaluations: the difference between their two answers is the error estimate. Solvers also give values at whatever times you ask for, filling in between their own steps by interpolation.</p>
+  </details>
+  <h3>2. They offer stiff methods</h3>
+  <p>Explicit methods are only conditionally A-stable (Module 3), so on a stiff problem an explicit solver crawls along with a huge number of tiny steps. Every library also offers implicit methods for stiff problems (BDF and Radau methods; in MATLAB, ode15s). If a solver crawls on a problem whose solution looks smooth, try one.</p>
+  <h3>Before you trust the answer</h3>
+  <ul>
+    <li><strong>Tighten the tolerance</strong> (or halve the step) and solve again. If the answer changes in digits you care about, it was not accurate enough.</li>
+    <li><strong>Check what must be true</strong>: $S + I + R = 1$ in the SIR model, energy for a pendulum without friction, populations that cannot go negative, the steady states you expect.</li>
+  </ul>
+
+  <section class="panel" aria-label="Quick check, Lesson 3">
+    <p class="panel-label">Quick check</p>
+    <div id="qc3"></div>
+  </section>
+
+  <!-- ============ PRACTICE ============ -->
+  <h2 id="practice-h">Practice <span class="time">4 min</span></h2>
+  <p>Unlimited and not scored. Every problem has new numbers. Do a handful, and stop when they feel routine. A calculator is fine; give answers to at least 5 decimal places when they are not whole numbers.</p>
+  <section class="panel" aria-labelledby="practice-h">
+    <div id="practice"></div>
+  </section>
+
+  <!-- ============ CHECK ============ -->
+  <h2 id="check-h">Module check <span class="time">4 min</span></h2>
+  <p>Five questions; 4 correct passes the module. You can retry as often as you like, with new numbers each time.</p>
+  <section class="panel" aria-labelledby="check-h">
+    <div id="check"></div>
+  </section>
+
+  <!-- ============ TAKEAWAYS ============ -->
+  <h2 id="takeaways">Takeaways</h2>
+  <ul>
+    <li>A system $\mathbf{y}' = \mathbf{f}(t, \mathbf{y})$, $\mathbf{y}(0) = \boldsymbol{\alpha}$, has the same shape as a single equation, and every method carries over with vectors. Compute all of $\mathbf{f}$ from the old values, then update.</li>
+    <li>The SIR model: $S' = -aSI$, $I' = -bI + aSI$, $R' = bI$. The ill fraction grows only while $S > b/a$, and $S + I + R$ stays constant.</li>
+    <li>A second-order equation becomes a first-order system by naming the velocity, $v = y'$.</li>
+    <li>Library solvers adapt the step to meet a tolerance you choose, and offer implicit methods for stiff problems.</li>
+    <li>Check an answer by tightening the tolerance and by testing what must be true.</li>
+  </ul>
+
+  <h3>Go further</h3>
+  <ul>
+    <li>Holmes, <em>Introduction to Scientific Computing and Data Analysis</em>, Section 7.6. Systems, the SIR model and Newton's second law; Example 7.13 works Euler and RK4 steps for a two-equation system, and Section 7.6.3 covers the pendulum and symplectic methods.</li>
+    <li><a href="https://www.youtube.com/watch?v=gxAaO2rsdIs">3Blue1Brown, “Simulating an epidemic”</a> (video). Animated simulations of people moving and infecting each other, showing how distancing, testing and travel change the curve; a vivid companion to the SIR equations.</li>
+    <li><a href="https://sites.math.duke.edu/education/postcalc/sir/index.html">David Smith and Lang Moore, “The SIR Model for Spread of Disease”</a> (Duke University). A short online module that builds the SIR model from a real flu epidemic and solves it with Euler's method.</li>
+    <li><a href="https://ocw.mit.edu/courses/res-18-009-learn-differential-equations-up-close-with-gilbert-strang-and-cleve-moler-fall-2015/resources/estimating-error-ode23/">Cleve Moler, “Estimating Error, ODE23”</a> (video, MIT OpenCourseWare, with transcript). How an adaptive solver estimates its own error and chooses the next step: “You don't specify the step size, you specify an accuracy you want.” Mostly concepts, with a short MATLAB demo. Moler writes the step as $h$ where these pages use $k$.</li>
+  </ul>
+
+  <nav class="next-link" aria-label="Module navigation">
+    <a href="04-heun-rk4.html">← Module 4, Heun and RK4</a>
+    <a href="../certificate.html">Your certificate →</a>
+  </nav>
+</main>
+
+<footer><div class="inner">Solving ODEs Numerically · Progress is saved in this browser only.</div></footer>
+</body>
+</html>

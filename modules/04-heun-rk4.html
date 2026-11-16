@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Module 4: Heun and RK4 · Solving ODEs Numerically</title>
+<meta name="description" content="Better slopes per step: the trapezoidal method, Heun's method and the classic RK4 method, their order of accuracy, and accuracy against work. About 30 minutes.">
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/style.css">
+<script defer src="../assets/vendor/katex/katex.min.js"></script>
+<script defer src="../assets/vendor/katex/auto-render.min.js"></script>
+<script defer src="../assets/core.js"></script>
+<script defer src="../assets/plot.js"></script>
+<script defer src="../assets/m04.js"></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="site-header-inner">
+    <a class="site-title" href="../index.html">Solving ODEs Numerically</a>
+    <nav aria-label="Site"><a href="../index.html">All modules</a><a href="../certificate.html">Certificate</a></nav>
+  </div>
+</header>
+
+<main id="main">
+  <p class="meta" style="margin-top:2rem">Module 4 of 5 · about 30 minutes</p>
+  <h1 style="margin-top:0.2rem">Better slopes: Heun and RK4</h1>
+  <p class="lede">Euler's method uses one slope per step, taken at the start. Using a few well-chosen slopes per step instead makes the error shrink dramatically faster as the step gets smaller.</p>
+
+  <nav aria-label="On this page">
+    <ul class="module-map">
+      <li><a href="#why">Why you'd care</a></li>
+      <li><a href="#lesson1">1. Two slopes: Heun's method</a></li>
+      <li><a href="#lesson2">2. Four slopes: RK4</a></li>
+      <li><a href="#lesson3">3. Accuracy against work</a></li>
+      <li><a href="#practice-h">Practice</a></li>
+      <li><a href="#check-h">Module check</a></li>
+      <li><a href="#takeaways">Takeaways</a></li>
+    </ul>
+  </nav>
+
+  <!-- ============ WHY ============ -->
+  <h2 id="why">Why you'd care <span class="time">2 min</span></h2>
+  <p>Module 2 showed that Euler's method is first order: to get one more correct digit you need ten times as many steps. Here is the coffee, $y' = -0.1\,(y - 20)$, $y(0) = 90$, solved up to $t = 10$ minutes with 10 steps of $k = 1$ minute, by Euler's method and by the two methods of this module:</p>
+  <div class="table-wrap">
+    <table>
+      <caption>The coffee at t = 10 with 10 steps (true value 45.7516)</caption>
+      <thead><tr><th scope="col">method</th><th scope="col">value at $t = 10$</th><th scope="col">error</th></tr></thead>
+      <tbody>
+        <tr><td>Euler</td><td>44.4075</td><td>1.34</td></tr>
+        <tr><td>Heun</td><td>45.7979</td><td>0.046</td></tr>
+        <tr><td>RK4</td><td>45.75158</td><td>0.000023</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Same problem, same 10 steps. RK4 is about 60,000 times more accurate than Euler. To match it, Euler's method would need more than half a million steps. Each RK4 step does four times the work of an Euler step, not 50,000 times. This module shows where these methods come from and why they win.</p>
+
+  <!-- ============ LESSON 1 ============ -->
+  <h2 id="lesson1">Lesson 1: Two slopes: Heun's method <span class="time">8 min</span></h2>
+  <h3>A step is an integral</h3>
+  <p>Integrate the differential equation $y' = f(t, y)$ from $t_j$ to $t_{j+1}$. By the Fundamental Theorem of Calculus,</p>
+  <div class="display">$$y(t_{j+1}) - y(t_j) = \int_{t_j}^{t_{j+1}} f\big(t, y(t)\big)\, dt .$$</div>
+  <p>So the change in $y$ over one step is the area under the graph of the slope, $f\big(t, y(t)\big)$, between $t_j$ and $t_{j+1}$. Every method in this module comes from approximating that area with an integration rule.</p>
+  <p>Euler's method uses the simplest rule: a rectangle whose height is the slope at the left end, $t_j$. That gives $y_{j+1} = y_j + k\,f(t_j, y_j)$. A rectangle ignores how the slope changes during the step, which is why Euler is only first order.</p>
+  <h3>The trapezoid rule, and its catch</h3>
+  <p>The trapezoid rule averages the heights at both ends, and is much more accurate. With $f_j = f(t_j, y_j)$ for short, it gives the <strong>trapezoidal method</strong></p>
+  <div class="display-pair"><div class="display">$$y_{j+1} = y_j + \frac{k}{2}\big(f_j + f_{j+1}\big),$$</div><div class="display">$$f_{j+1} = f(t_{j+1}, y_{j+1}).$$</div></div>
+  <p>The catch is the slope at the end, $f_{j+1}$: it needs $y_{j+1}$, the very value being computed. Like backward Euler in Module 3, the trapezoidal method is <strong>implicit</strong>, so each step means solving an equation.</p>
+  <h3>Heun's method: predict, then correct</h3>
+  <p>A simple way around the catch: first <em>predict</em> the end value with an ordinary Euler step. Call the prediction $\hat y_{j+1}$ (“y-hat”):</p>
+  <div class="display">$$\hat y_{j+1} = y_j + k f_j .$$</div>
+  <p>Then use the prediction to evaluate the slope at the end, and step with the average of the two slopes. This is <strong>Heun's method</strong>:</p>
+  <div class="display">$$y_{j+1} = y_j + \frac{k}{2}\Big(f(t_j, y_j) + f\big(t_{j+1},\, \hat y_{j+1}\big)\Big).$$</div>
+  <p>It is explicit again, because everything on the right is known. Each step costs two evaluations of $f$ instead of one.</p>
+
+  <figure class="plotfig">
+    <svg id="fig-heun" class="plot" role="img" aria-label="One step of length 4 for the cooling coffee, starting at (0, 90). The true curve bends down to about 66.9 at time 4. A dashed Euler line with slope minus 7 predicts 62 at time 4. At that predicted point the slope is minus 4.2, shown as a short segment. Heun's step uses the average slope, minus 5.6, and lands at 67.6, much closer to the true value than Euler's 62."></svg>
+    <figcaption>One Heun step for the coffee with $k = 4$, large enough to see. Euler's slope at the start, $-7$, predicts $62$ (dashed). The slope at that predicted point is $-0.1 \times (62 - 20) = -4.2$. Heun follows the average, $-5.6$, and lands at $90 + 4 \times (-5.6) = 67.6$. The true value is about $66.9$.</figcaption>
+  </figure>
+
+  <p><strong>A worked step.</strong> For the coffee with $k = 1$:</p>
+  <div class="table-wrap">
+    <table class="stack">
+      <caption>One Heun step for the coffee with k = 1</caption>
+      <thead><tr><th scope="col">stage</th><th scope="col">computation</th><th scope="col">result</th></tr></thead>
+      <tbody>
+        <tr><td data-label="stage">slope at the start</td><td data-label="computation">$f(0, 90) = -0.1 \times 70$</td><td data-label="result">$-7$</td></tr>
+        <tr><td data-label="stage">Euler prediction</td><td data-label="computation">$90 + 1 \times (-7)$</td><td data-label="result">$83$</td></tr>
+        <tr><td data-label="stage">slope at the predicted end</td><td data-label="computation">$f(1, 83) = -0.1 \times 63$</td><td data-label="result">$-6.3$</td></tr>
+        <tr><td data-label="stage">Heun's step</td><td data-label="computation">$90 + \tfrac12 \times \big((-7) + (-6.3)\big)$</td><td data-label="result">$83.35$</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>The true value is $y(1) = 83.3386$. Euler's $83$ was off by $0.34$; Heun's $83.35$ is off by $0.011$.</p>
+  <p><strong>How accurate?</strong> Heun's truncation error is $\tau_j = O(k^2)$: it is <strong>second order</strong>. Halving the step divides the error by about $2^2 = 4$. Heun's method is one of a family of second-order methods called <strong>RK2</strong> methods (Runge–Kutta methods of order 2).</p>
+
+  <section class="panel" aria-label="Quick check, Lesson 1">
+    <p class="panel-label">Quick check</p>
+    <div id="qc1"></div>
+  </section>
+
+  <!-- ============ LESSON 2 ============ -->
+  <h2 id="lesson2">Lesson 2: Four slopes: RK4 <span class="time">8 min</span></h2>
+  <p>A better integration rule gives a better method. Simpson's rule uses the heights at the start, the middle and the end of the interval, with weights $1, 4, 1$. The method built this way is the <strong>classic RK4</strong> method, the workhorse of ODE solvers. It takes four slope samples per step and combines them:</p>
+  <div class="display">$$y_{j+1} = y_j + \frac16\big(k_1 + 2k_2 + 2k_3 + k_4\big),$$</div>
+  <p>where</p>
+  <div class="display">$$\begin{aligned}
+    k_1 &= k\, f(t_j,\; y_j), \\
+    k_2 &= k\, f\big(t_j + \tfrac{k}{2},\; y_j + \tfrac12 k_1\big), \\
+    k_3 &= k\, f\big(t_j + \tfrac{k}{2},\; y_j + \tfrac12 k_2\big), \\
+    k_4 &= k\, f(t_{j+1},\; y_j + k_3).
+  \end{aligned}$$</div>
+  <p><strong>Careful with the notation.</strong> $k$ on its own is the step size. The numbers $k_1, k_2, k_3, k_4$ are not step sizes: each is the step times a slope, so each is a <em>change in $y$</em>, the change that a whole step at that slope would make. Read them like this:</p>
+  <ol>
+    <li>$k_1$: the change using the slope at the start (this is exactly Euler's change).</li>
+    <li>$k_2$: go half a step using $k_1$, measure the slope there at the midpoint, and turn it into a change.</li>
+    <li>$k_3$: go half a step again, this time using the better estimate $k_2$, and measure the midpoint slope again.</li>
+    <li>$k_4$: go a whole step using $k_3$ and measure the slope at the end.</li>
+  </ol>
+  <p>The final step is a weighted average of the four changes. The two midpoint samples share Simpson's weight of 4, which is why each gets a 2.</p>
+  <p><strong>A worked step.</strong> For the coffee with $k = 1$, where $f(t, y) = -0.1\,(y - 20)$. With $k = 1$, each change is just the slope, so the multiplication by $k$ is left out:</p>
+  <div class="table-wrap">
+    <table class="stack">
+      <caption>One RK4 step for the coffee with k = 1</caption>
+      <thead><tr><th scope="col">change</th><th scope="col">slope measured at</th><th scope="col">slope (= change, since $k = 1$)</th></tr></thead>
+      <tbody>
+        <tr><td data-label="change"><span aria-hidden="true">$k_1$</span><span class="visually-hidden">k 1</span></td><td data-label="slope measured at">$y = 90$</td><td data-label="slope (= change, since k = 1)">$-0.1 \times 70 = -7$</td></tr>
+        <tr><td data-label="change"><span aria-hidden="true">$k_2$</span><span class="visually-hidden">k 2</span></td><td data-label="slope measured at">$y = 90 + \tfrac12(-7) = 86.5$</td><td data-label="slope (= change, since k = 1)">$-0.1 \times 66.5 = -6.65$</td></tr>
+        <tr><td data-label="change"><span aria-hidden="true">$k_3$</span><span class="visually-hidden">k 3</span></td><td data-label="slope measured at">$y = 90 + \tfrac12(-6.65) = 86.675$</td><td data-label="slope (= change, since k = 1)">$-0.1 \times 66.675 = -6.6675$</td></tr>
+        <tr><td data-label="change"><span aria-hidden="true">$k_4$</span><span class="visually-hidden">k 4</span></td><td data-label="slope measured at">$y = 90 + (-6.6675) = 83.3325$</td><td data-label="slope (= change, since k = 1)">$-0.1 \times 63.3325 = -6.33325$</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="display">$$\begin{aligned} y_1 &= 90 + \tfrac16\big(-7 + 2(-6.65) \\ &\qquad\quad + 2(-6.6675) - 6.33325\big) \\ &= 90 - 6.661375 = 83.338625 . \end{aligned}$$</div>
+  <p>The true value is $83.338613$: RK4 is off by about $0.00001$ after one step.</p>
+  <p><strong>How accurate?</strong> The classic RK4 method has truncation error $\tau_j = O(k^4)$: it is <strong>fourth order</strong>. Halving the step divides the error by about $2^4 = 16$, and dividing the step by 10 divides it by $10^4 = 10{,}000$.</p>
+
+  <section class="panel" aria-label="Explore: Euler, Heun and RK4 on the logistic equation">
+    <p class="panel-label">Explore</p>
+    <div id="ex-compare"></div>
+    <h3 style="margin-top:1.6rem">Try this</h3>
+    <ol class="tries">
+      <li>
+        <p>Start with $M = 10$ steps. Which method's points lie on the true curve, and which miss it badly?</p>
+        <details><summary>Answer</summary><p>RK4's points sit on the curve (error about $0.003$). Heun's are close (about $0.08$). Euler's lag far behind the steep rise (about $0.33$).</p></details>
+      </li>
+      <li>
+        <p>Go from $M = 20$ to $M = 40$, halving the step. By roughly what factor does each method's error shrink?</p>
+        <details><summary>Answer</summary><p>Euler: about 2. Heun: about 3.5. RK4: about 13. As $M$ grows further these approach $2$, $4$ and $16$, the factors predicted by the orders 1, 2 and 4.</p></details>
+      </li>
+    </ol>
+  </section>
+
+  <section class="panel" aria-label="Quick check, Lesson 2">
+    <p class="panel-label">Quick check</p>
+    <div id="qc2"></div>
+  </section>
+
+  <!-- ============ LESSON 3 ============ -->
+  <h2 id="lesson3">Lesson 3: Accuracy against work <span class="time">4 min</span></h2>
+  <p>A fair comparison has to account for work. In real problems, evaluating $f$ is usually the expensive part, so work is counted in evaluations of $f$, and the methods use different numbers of them per step:</p>
+  <div class="table-wrap">
+    <table>
+      <caption>Order and cost of the three methods</caption>
+      <thead><tr><th scope="col">method</th><th scope="col">order</th><th scope="col">evaluations of $f$ per step</th><th scope="col">halving $k$ divides the error by about</th></tr></thead>
+      <tbody>
+        <tr><td>Euler</td><td>1</td><td>1</td><td>2</td></tr>
+        <tr><td>Heun (RK2)</td><td>2</td><td>2</td><td>4</td></tr>
+        <tr><td>classic RK4</td><td>4</td><td>4</td><td>16</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>So give each method the same budget: 160 evaluations of $f$ for the logistic equation of the explorer. That is 160 Euler steps, 80 Heun steps or 40 RK4 steps.</p>
+  <div class="table-wrap">
+    <table>
+      <caption>The logistic equation with the same work, 160 evaluations of f</caption>
+      <thead><tr><th scope="col">method</th><th scope="col">steps $M$</th><th scope="col">largest error</th></tr></thead>
+      <tbody>
+        <tr><td>Euler</td><td>160</td><td>0.025</td></tr>
+        <tr><td>Heun</td><td>80</td><td>0.0019</td></tr>
+        <tr><td>RK4</td><td>40</td><td>0.000018</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>For the same work, RK4 is more than a thousand times more accurate than Euler. And the gap widens as you ask for more accuracy: for this problem, an error of $4 \times 10^{-5}$ takes Euler about 100,000 steps, Heun about 570 and RK4 about 33. In evaluations of $f$ that is 100,000, about 1,100 and about 130.</p>
+  <h3>What RK4 does not fix</h3>
+  <p>Like Euler, these explicit methods are only conditionally A-stable: Heun needs $k < 2/r$, RK4 needs $k < 2.785/r$. So stiff problems still call for the implicit methods of Module 3; for everything else, RK4 is usually the first choice.</p>
+
+  <section class="panel" aria-label="Quick check, Lesson 3">
+    <p class="panel-label">Quick check</p>
+    <div id="qc3"></div>
+  </section>
+
+  <!-- ============ PRACTICE ============ -->
+  <h2 id="practice-h">Practice <span class="time">4 min</span></h2>
+  <p>Unlimited and not scored. Every problem has new numbers. Do a handful, and stop when they feel routine. A calculator is fine; give answers to at least 4 decimal places when they are not whole numbers.</p>
+  <section class="panel" aria-labelledby="practice-h">
+    <div id="practice"></div>
+  </section>
+
+  <!-- ============ CHECK ============ -->
+  <h2 id="check-h">Module check <span class="time">4 min</span></h2>
+  <p>Five questions; 4 correct passes the module. You can retry as often as you like, with new numbers each time.</p>
+  <section class="panel" aria-labelledby="check-h">
+    <div id="check"></div>
+  </section>
+
+  <!-- ============ TAKEAWAYS ============ -->
+  <h2 id="takeaways">Takeaways</h2>
+  <ul>
+    <li>A step is an integral: $y(t_{j+1}) - y(t_j) = \int_{t_j}^{t_{j+1}} f\,dt$. Euler uses a rectangle; better integration rules give better methods.</li>
+    <li>The trapezoidal method is second order but implicit. Heun's method predicts the end value with an Euler step and averages the two slopes: explicit, second order, two evaluations of $f$ per step.</li>
+    <li>Classic RK4 combines four slope samples with weights $1, 2, 2, 1$ (Simpson's rule): $y_{j+1} = y_j + \tfrac16(k_1 + 2k_2 + 2k_3 + k_4)$. It is fourth order and costs four evaluations of $f$ per step. Each $k_i$ is a change in $y$, not a step size.</li>
+    <li>Compare methods at equal work. Higher order wins by more and more as you ask for more accuracy.</li>
+    <li>Explicit Runge–Kutta methods are conditionally A-stable (RK4: $k < 2.785/r$), so stiff problems still need implicit methods.</li>
+  </ul>
+
+  <h3>Go further</h3>
+  <ul>
+    <li>Holmes, <em>Introduction to Scientific Computing and Data Analysis</em>, Sections 7.4 and 7.5. The trapezoidal method, RK2 methods including Heun's, and classic RK4 (Example 7.10), with error curves for the logistic equation in Figures 7.8 and 7.9.</li>
+    <li><a href="https://ocw.mit.edu/courses/res-18-009-learn-differential-equations-up-close-with-gilbert-strang-and-cleve-moler-fall-2015/resources/classical-runge-kutta-ode4/">Cleve Moler, “Classical Runge–Kutta, ODE4”</a> (video, MIT OpenCourseWare, with transcript). The four slope evaluations and their weights, why classic RK4 has been the most widely used ODE method for a century, and what it lacks: an estimate of its own error. Mostly concepts, with a short MATLAB demo. Moler writes the step as $h$ where these pages use $k$.</li>
+  </ul>
+
+  <nav class="next-link" aria-label="Module navigation">
+    <a href="03-stability.html">← Module 3, Stability</a>
+    <a href="05-in-practice.html">Module 5, ODE solvers in practice →</a>
+  </nav>
+</main>
+
+<footer><div class="inner">Solving ODEs Numerically · Progress is saved in this browser only.</div></footer>
+</body>
+</html>

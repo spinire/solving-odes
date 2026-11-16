@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Module 2: Euler's method · Solving ODEs Numerically</title>
+<meta name="description" content="Euler's method for initial value problems: follow the slope for one short step, then repeat. How large the error is and how it shrinks with the step size. About 30 minutes.">
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="../assets/style.css">
+<script defer src="../assets/vendor/katex/katex.min.js"></script>
+<script defer src="../assets/vendor/katex/auto-render.min.js"></script>
+<script defer src="../assets/core.js"></script>
+<script defer src="../assets/plot.js"></script>
+<script defer src="../assets/m02.js"></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="site-header-inner">
+    <a class="site-title" href="../index.html">Solving ODEs Numerically</a>
+    <nav aria-label="Site"><a href="../index.html">All modules</a><a href="../certificate.html">Certificate</a></nav>
+  </div>
+</header>
+
+<main id="main">
+  <p class="meta" style="margin-top:2rem">Module 2 of 5 · about 30 minutes</p>
+  <h1 style="margin-top:0.2rem">Euler's method</h1>
+  <p class="lede">A differential equation tells you how fast something is changing. Euler's method turns that into the thing itself: follow the slope for a short step, then look again.</p>
+
+  <nav aria-label="On this page">
+    <ul class="module-map">
+      <li><a href="#why">Why you'd care</a></li>
+      <li><a href="#lesson1">1. Follow the slope</a></li>
+      <li><a href="#lesson2">2. Step after step</a></li>
+      <li><a href="#lesson3">3. How big is the error?</a></li>
+      <li><a href="#practice-h">Practice</a></li>
+      <li><a href="#check-h">Module check</a></li>
+      <li><a href="#takeaways">Takeaways</a></li>
+    </ul>
+  </nav>
+
+  <!-- ============ WHY ============ -->
+  <h2 id="why">Why you'd care <span class="time">2 min</span></h2>
+  <p>A cup of coffee at $90^\circ$C is left in a $20^\circ$C room. It cools faster when it is much hotter than the room, and more slowly as it gets close. Newton's law of cooling makes this precise: if $y(t)$ is the temperature after $t$ minutes, then</p>
+  <div class="display-pair"><div class="display">$$y'(t) = -0.1\,\big(y(t) - 20\big),$$</div><div class="display">$$y(0) = 90.$$</div></div>
+  <p>At the start the coffee is $70^\circ$ above the room, so it cools at $0.1 \times 70 = 7$ degrees per minute. The equation tells you how fast the temperature is changing at every moment. It does not tell you the temperature at, say, $t = 10$.</p>
+  <p>This equation happens to have a formula for its solution, which we will use to check our answers. Most equations that matter do not: an outbreak model, a pendulum with friction, a drug the body clears at a rate that depends on the dose. For those, a computer builds the solution one small step at a time. Euler's method is the simplest way to do it, and every better method starts from the same idea.</p>
+
+  <!-- ============ LESSON 1 ============ -->
+  <h2 id="lesson1">Lesson 1: Follow the slope <span class="time">6 min</span></h2>
+  <p>As in Module 1, the problem is $y' = f(t, y)$, $y(0) = \alpha$, where the slope machine $f$ gives the rate of change at any time and value. For the coffee, $f(t, y) = -0.1\,(y - 20)$, $\alpha = 90$, and $f(0, 90) = -7$.</p>
+  <p>Now suppose the coffee kept cooling at 7 degrees per minute for one whole minute. Its temperature would be $90 - 7 = 83$. That is not exactly right, because the cooling slows down during that minute. But over a short time the rate barely changes, so 83 is close. Then do the same again from the new point: work out the slope at $83^\circ$, and follow it for another minute.</p>
+  <p>That is all of Euler's method. Pick a <strong>step</strong> $k$ and the times $t_j = jk$, that is $t_0 = 0,\ t_1 = k,\ t_2 = 2k$, and so on. Write $y_j$ for the computed value at $t_j$; it approximates the true value $y(t_j)$. To go up to a time $T$ takes $M = T/k$ steps, so the last time is $t_M = T$. Starting from $y_0 = \alpha$, repeat</p>
+  <div class="display">$$y_{j+1} = y_j + k\, f(t_j, y_j).$$</div>
+  <p>In words: <em>new value = old value + step × slope at the old point.</em> In a picture, each step walks along the tangent line for a time $k$. Because the formula gives $y_{j+1}$ directly from values already known, Euler's method is called an <strong>explicit</strong> method.</p>
+
+  <figure class="plotfig">
+    <svg id="fig-onestep" class="plot" role="img" aria-label="The true cooling curve starts at temperature 90 at time 0 and bends downward toward 20, flattening out. A straight line, the tangent at time 0 with slope minus 7, runs from (0, 90) to (4, 62). At time 4 the true curve is at about 66.9, above the end of the tangent line; a dashed vertical segment marks the gap of about 4.9 degrees."></svg>
+    <figcaption>One Euler step with $k = 4$, made large so the gap is easy to see. The step follows the tangent line from $(t_0, y_0) = (0, 90)$ and lands at $y_1 = 90 + 4 \times (-7) = 62$. The true temperature at $t = 4$ is about $66.9$. The gap is the error made by this step.</figcaption>
+  </figure>
+
+  <p><strong>Where the formula comes from.</strong> The derivative $y'(t)$ is the limit of the slope $\big(y(t+k) - y(t)\big)/k$ as $k \to 0$. A computer cannot take the limit, so it uses a small $k$ instead. This is the <strong>forward difference</strong>:</p>
+  <div class="display">$$y'(t_j) \approx \frac{y(t_{j+1}) - y(t_j)}{k}.$$</div>
+  <p>The differential equation says $y'(t_j) = f\big(t_j, y(t_j)\big)$. Put the two together and solve for the value at the next time:</p>
+  <div class="display">$$y(t_{j+1}) \approx y(t_j) + k\, f\big(t_j, y(t_j)\big).$$</div>
+  <p>Replace the true values by the computed ones and you have Euler's method. So everything you know about the forward difference, including how large its error is, carries over. Lesson 3 uses that.</p>
+
+  <section class="panel" aria-label="Quick check, Lesson 1">
+    <p class="panel-label">Quick check</p>
+    <div id="qc1"></div>
+  </section>
+
+  <!-- ============ LESSON 2 ============ -->
+  <h2 id="lesson2">Lesson 2: Step after step <span class="time">7 min</span></h2>
+  <p>Here are the first three steps for the coffee with $k = 1$ minute. Each row uses the value from the row above; that is the only new information Euler's method has.</p>
+  <div class="table-wrap">
+    <table>
+      <caption class="visually-hidden">Three Euler steps for the coffee with step 1</caption>
+      <thead><tr><th scope="col"><span aria-hidden="true">$j$</span><span class="visually-hidden">j</span></th><th scope="col"><span aria-hidden="true">$t_j$</span><span class="visually-hidden">t j</span></th><th scope="col"><span aria-hidden="true">$y_j$</span><span class="visually-hidden">y j</span></th><th scope="col">slope $f(t_j, y_j)$</th><th scope="col"><span aria-hidden="true">$y_{j+1} = y_j + 1 \times \text{slope}$</span><span class="visually-hidden">y j+1 = y j + 1 times slope</span></th><th scope="col">true $y(t_{j+1})$</th></tr></thead>
+      <tbody>
+        <tr><td>0</td><td>0</td><td>90</td><td>$-0.1 \times 70 = -7$</td><td>83</td><td>83.34</td></tr>
+        <tr><td>1</td><td>1</td><td>83</td><td>$-0.1 \times 63 = -6.3$</td><td>76.7</td><td>77.31</td></tr>
+        <tr><td>2</td><td>2</td><td>76.7</td><td>$-0.1 \times 56.7 = -5.67$</td><td>71.03</td><td>71.86</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Two things to notice. First, every computed value is a little below the true one. Each step uses the slope at the start of the step, which is the fastest the coffee cools during that step, so each step overshoots downward. Second, the gap grows: $0.34$, then $0.61$, then $0.83$. Each step adds its own small error to the error it inherited.</p>
+
+  <section class="panel" aria-labelledby="explore-h">
+    <p class="panel-label" id="explore-h">Explore</p>
+    <div id="ex-euler"></div>
+    <h3 style="margin-top:1.6rem">Try this</h3>
+    <ol class="tries">
+      <li>
+        <p>With $k = 5$, press <em>One step</em> twice. How far off is Euler's value at $t = 10$?</p>
+        <details><summary>Answer</summary><p>Euler gives $37.5$ and the true value is about $45.75$, so the error is about $8.3$ degrees. Two big steps miss the slowing down almost entirely.</p></details>
+      </li>
+      <li>
+        <p>Now run to $t = 10$ with $k = 2.5$, then $k = 1$, then $k = 0.5$. The table under the picture keeps your results. What happens to the error each time the step gets smaller?</p>
+        <details><summary>What happened?</summary><p>The error shrinks along with the step. Halving the step from $1$ to $0.5$ halves the error, from $1.34$ to $0.66$, and dividing the step by $2.5$ (from $2.5$ to $1$) divides the error by about $2.7$. With very large steps the pattern is rougher: halving $k = 5$ to $2.5$ cut the error from $8.25$ to $3.6$. For small steps, the error is close to proportional to $k$. Lesson 3 explains why.</p></details>
+      </li>
+    </ol>
+  </section>
+
+  <section class="panel" aria-label="Quick check, Lesson 2">
+    <p class="panel-label">Quick check</p>
+    <div id="qc2"></div>
+  </section>
+
+  <!-- ============ LESSON 3 ============ -->
+  <h2 id="lesson3">Lesson 3: How big is the error? <span class="time">7 min</span></h2>
+  <p>Each step makes a small error, and the errors add up over the steps. To see how the total depends on $k$, count both.</p>
+  <h3>The error in one step</h3>
+  <p>Taylor's theorem gives the error of the forward difference:</p>
+  <div class="display-pair"><div class="display">$$y'(t_j) = \frac{y(t_{j+1}) - y(t_j)}{k} + \tau_j,$$</div><div class="display">$$\tau_j = -\tfrac12 k\, y''(t_j) + \cdots .$$</div></div>
+  <p>The number $\tau_j$ is the <strong>truncation error</strong>: what Euler's method throws away at step $j$. It comes from $y''$, the bending of the true curve, which is what the picture in Lesson 1 showed: a straight step cannot follow a curve. For small $k$, $\tau_j$ is roughly proportional to $k$. We write $\tau_j = O(k)$ and say Euler's method is <strong>first order</strong>.</p>
+  <h3>Adding up the steps</h3>
+  <p>Since $y'(t_j) = f\big(t_j, y(t_j)\big)$, multiplying the equation above by $k$ and solving for $y(t_{j+1})$ gives</p>
+  <div class="display">$$y(t_{j+1}) = y(t_j) + k\, f\big(t_j, y(t_j)\big) - k\,\tau_j .$$</div>
+  <p>The first two terms are exactly Euler's step; the last term, $k\,\tau_j$, is what the step leaves out. It is $k$ times something proportional to $k$, so each step adds an error of about $C k^2$, where the number $C$ depends on how much the solution bends. To reach $t = 10$ takes $M = 10/k$ steps. Altogether, the error at $t = 10$ is about</p>
+  <div class="display">$$\underbrace{\frac{10}{k}}_{M \text{ steps}} \times \underbrace{C k^2}_{\text{per step}} \;=\; 10\,C\,k .$$</div>
+  <p>This count is rough: an error made early can grow or shrink in later steps. But for well-behaved problems it gives the right answer. <strong>The error at a fixed time is roughly proportional to $k$.</strong> Halve the step and you about halve the error. Here are the coffee's errors at $t = 10$:</p>
+  <div class="table-wrap">
+    <table>
+      <caption class="visually-hidden">Euler's error at t = 10 for the coffee, for five step sizes</caption>
+      <thead><tr><th scope="col">step $k$</th><th scope="col">steps</th><th scope="col">Euler's $y$ at $t = 10$</th><th scope="col">error</th><th scope="col">error ÷ previous error</th></tr></thead>
+      <tbody>
+        <tr><td>2</td><td>5</td><td>42.938</td><td>2.814</td><td></td></tr>
+        <tr><td>1</td><td>10</td><td>44.407</td><td>1.344</td><td>0.48</td></tr>
+        <tr><td>0.5</td><td>20</td><td>45.094</td><td>0.658</td><td>0.49</td></tr>
+        <tr><td>0.25</td><td>40</td><td>45.426</td><td>0.325</td><td>0.49</td></tr>
+        <tr><td>0.125</td><td>80</td><td>45.590</td><td>0.162</td><td>0.50</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Every halving of $k$ multiplies the error by about $\tfrac12$. On a log-log plot, error against step, the points lie on a line of slope 1. A method with error proportional to $k^2$ would give slope 2.</p>
+  <figure class="plotfig">
+    <svg id="fig-loglog" class="plot" role="img" aria-label="Log-log plot of Euler's error at t = 10 against the step k, for k from 0.125 to 2. The five points lie on a straight line of slope 1, parallel to a dashed reference line labeled slope 1."></svg>
+    <figcaption>Error against step for the coffee, on logarithmic axes. The points lie on a line of slope 1: Euler's method is first order.</figcaption>
+  </figure>
+  <h3>What first order costs</h3>
+  <p>To make the error 10 times smaller you need a step 10 times smaller, which means 10 times as many steps. Each extra correct digit costs a factor of 10 in work. With $k = 0.125$ the coffee is right to about $0.16$ degrees after 80 steps; getting it right to $0.0016$ would take about 8,000. That is why Module 4 looks for methods whose error shrinks much faster as $k$ gets smaller.</p>
+
+  <details class="deeper">
+    <summary>Go deeper: checking accuracy when there is no formula</summary>
+    <p>For most real problems there is no exact solution to compare with. Run Euler twice, with step $k$ and with step $k/2$. Since the error is proportional to the step, the run with $k/2$ is off by about half as much as the run with $k$, so the difference between the two runs is about the error of the $k/2$ run.</p>
+    <p>For the coffee: $k = 1$ gives $44.407$ and $k = 0.5$ gives $45.094$. They differ by $0.69$, and the true error of the $k = 0.5$ run is $0.66$. Not exact, but a good guide to how many digits you can trust.</p>
+  </details>
+
+  <section class="panel" aria-label="Quick check, Lesson 3">
+    <p class="panel-label">Quick check</p>
+    <div id="qc3"></div>
+  </section>
+
+  <!-- ============ PRACTICE ============ -->
+  <h2 id="practice-h">Practice <span class="time">4 min</span></h2>
+  <p>Unlimited and not scored. Every problem has new numbers. Do a handful, and stop when they feel routine. Answers can be decimals; a calculator is fine.</p>
+  <section class="panel" aria-labelledby="practice-h">
+    <div id="practice"></div>
+  </section>
+
+  <!-- ============ CHECK ============ -->
+  <h2 id="check-h">Module check <span class="time">4 min</span></h2>
+  <p>Five questions; 4 correct passes the module. You can retry as often as you like, with new numbers each time.</p>
+  <section class="panel" aria-labelledby="check-h">
+    <div id="check"></div>
+  </section>
+
+  <!-- ============ TAKEAWAYS ============ -->
+  <h2 id="takeaways">Takeaways</h2>
+  <ul>
+    <li>An initial value problem $y' = f(t, y)$, $y(0) = \alpha$ gives the slope at every point and the starting value.</li>
+    <li>Euler's method: $y_{j+1} = y_j + k\, f(t_j, y_j)$. Follow the slope at the start of the step for a time $k$, then repeat.</li>
+    <li>It is the forward difference, rearranged. Its truncation error $\tau_j$ is $O(k)$: Euler's method is first order.</li>
+    <li>The error at a fixed time is roughly proportional to $k$. Halving the step about halves the error and doubles the work.</li>
+  </ul>
+
+  <h3>Go further</h3>
+  <ul>
+    <li>Holmes, <em>Introduction to Scientific Computing and Data Analysis</em>, Section 7.3.1. Euler's method built in five steps, and its truncation error, in the notation used here. Example 7.4 runs it on the logistic equation and finds the same pattern as Lesson 3: ten times the steps, one tenth the error.</li>
+    <li><a href="https://ocw.mit.edu/courses/res-18-009-learn-differential-equations-up-close-with-gilbert-strang-and-cleve-moler-fall-2015/resources/euler-ode1/">Cleve Moler, “Euler, ODE1”</a> (video, MIT OpenCourseWare, with transcript). Watch the first five minutes, which explain the method; the rest is MATLAB code. Moler writes the step as $h$ where these pages use $k$.</li>
+    <li><a href="https://www.jirka.org/diffyqs/html/numer_section.html">Jiří Lebl, <em>Notes on Diffy Qs</em>, Section 1.7 “Numerical methods: Euler's method”</a>. A free textbook section with worked examples and error tables.</li>
+  </ul>
+
+  <nav class="next-link" aria-label="Module navigation">
+    <a href="01-what-a-solver-does.html">← Module 1, What an ODE solver does</a>
+    <a href="03-stability.html">Module 3, Stability →</a>
+  </nav>
+</main>
+
+<footer><div class="inner">Solving ODEs Numerically · Progress is saved in this browser only.</div></footer>
+</body>
+</html>
